@@ -1,0 +1,25 @@
+# Node
+node_modules/
+dist/
+.vite/
+
+# Java / Maven
+target/
+*.class
+
+# Python
+__pycache__/
+*.py[cod]
+*.class
+venv/
+.pytest_cache/
+
+# Hardhat
+cache/
+artifacts/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

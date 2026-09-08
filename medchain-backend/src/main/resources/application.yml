@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: medchain-backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/medchain
+    username: medchain
+    password: medchain
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true  # Set to true temporarily for debugging
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+server:
+  port: 8080
+  # Add these error settings to see full error messages
+  error:
+    include-message: always
+    include-stacktrace: always
+
+logging:
+  level:
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.springframework.web.cors: DEBUG
+
+medchain:
+  jwt:
+    secret: ${MEDCHAIN_JWT_SECRET:dev-only-secret-key-please-override-me-1234567890}
+    expiration-minutes: 720
+
+  ai-service:
+    base-url: ${MEDCHAIN_AI_SERVICE_URL:http://localhost:8000}
+
+  blockchain:
+    enabled: ${MEDCHAIN_BLOCKCHAIN_ENABLED:true}
+    rpc-url: ${MEDCHAIN_BLOCKCHAIN_RPC_URL:http://localhost:8545}
+    contract-address: ${MEDCHAIN_CONTRACT_ADDRESS:0x5FbDB2315678afecb367f032d93F642f64180aa3}
+    chain-id: ${MEDCHAIN_CHAIN_ID:31337}
+    relayer-private-key: ${MEDCHAIN_RELAYER_KEY:0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+
+  seed:
+    enabled: ${MEDCHAIN_SEED_DEMO_DATA:true}
