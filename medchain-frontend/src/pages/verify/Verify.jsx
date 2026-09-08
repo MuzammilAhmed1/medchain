@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { CheckCircle2, XCircle, AlertTriangle, QrCode, Camera, Upload, StopCircle } from "lucide-react";
 import jsQR from "jsqr";
 import { PageHeader, Card, CardHeader, Input, Button, Timeline, Badge, Alert } from "../../components/ui";
 import { verifyApi } from "../../services/verifyApi";
 
 export default function Verify() {
+  const [searchParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const [result, setResult] = useState(null); // { found, authentic, batch }
   const [checked, setChecked] = useState(false);
@@ -35,6 +36,14 @@ export default function Verify() {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    const param = searchParams.get("query") || searchParams.get("batchId");
+    if (param) {
+      setQuery(param);
+      doVerify(param);
+    }
+  }, [searchParams, doVerify]);
 
   const handleManualSubmit = (e) => {
     e.preventDefault();

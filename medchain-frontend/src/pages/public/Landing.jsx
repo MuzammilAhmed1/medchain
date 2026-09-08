@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ShieldCheck,
   QrCode,
@@ -8,16 +8,24 @@ import {
   Lock,
   Cpu,
   Activity,
-  CheckCircle2,
   Layers,
   ArrowRight,
   Database,
   Search,
 } from "lucide-react";
-import { Button, Badge } from "../../components/ui";
+import { Button, Input } from "../../components/ui";
 
 export default function Landing() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [quickQuery, setQuickQuery] = useState("");
+
+  const handleQuickVerify = (e) => {
+    e.preventDefault();
+    if (quickQuery.trim()) {
+      navigate(`/verify?query=${encodeURIComponent(quickQuery.trim().toUpperCase())}`);
+    }
+  };
 
   useEffect(() => {
     if (location.hash) {
@@ -67,32 +75,32 @@ export default function Landing() {
 
           <div className="lg:col-span-5">
             <div className="border border-border rounded-lg p-6 bg-surface shadow-sm">
-              <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
+              <div className="flex items-center gap-3 border-b border-border pb-4 mb-5">
+                <div className="p-2.5 rounded-md bg-primary-tint text-primary">
+                  <ShieldCheck size={24} />
+                </div>
                 <div>
-                  <p className="text-small text-ink-muted font-mono">BATCH #MC-2026-00003</p>
-                  <p className="text-h3 font-semibold text-ink">Amoxicillin 500mg</p>
+                  <h3 className="text-h3 font-semibold text-ink">Verify Medicine Batch</h3>
+                  <p className="text-small text-ink-muted">Public blockchain authenticity lookup</p>
                 </div>
-                <Badge status="VERIFIED" />
               </div>
-              <div className="space-y-3 text-small">
-                <div className="flex justify-between py-1.5 border-b border-border/50">
-                  <span className="text-ink-muted">Manufacturer</span>
-                  <span className="font-medium text-ink">Aegis BioLabs</span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b border-border/50">
-                  <span className="text-ink-muted">Current Custodian</span>
-                  <span className="font-medium text-ink">City Center Pharmacy</span>
-                </div>
-                <div className="flex justify-between py-1.5 border-b border-border/50">
-                  <span className="text-ink-muted">Blockchain Ledger</span>
-                  <span className="font-mono text-primary text-xs">Block #12 (Verified)</span>
-                </div>
-                <div className="flex justify-between py-1.5">
-                  <span className="text-ink-muted">AI Risk Assessment</span>
-                  <span className="font-semibold text-success flex items-center gap-1">
-                    <CheckCircle2 size={14} /> Low Risk (Score: 5/100)
-                  </span>
-                </div>
+
+              <form onSubmit={handleQuickVerify} className="flex flex-col gap-4">
+                <Input
+                  label="Batch Identifier"
+                  placeholder="Enter Batch ID (e.g. MC-2026-00001)"
+                  value={quickQuery}
+                  onChange={(e) => setQuickQuery(e.target.value)}
+                  required
+                />
+                <Button type="submit" className="w-full flex items-center justify-center gap-2">
+                  <Search size={16} /> Verify Authenticity
+                </Button>
+              </form>
+
+              <div className="mt-5 pt-4 border-t border-border/60 flex items-center justify-between text-xs text-ink-muted">
+                <span>✓ Tamper-proof Ethereum ledger</span>
+                <span>✓ Zero login required</span>
               </div>
             </div>
           </div>
