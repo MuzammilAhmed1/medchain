@@ -1,5 +1,7 @@
 package com.medchain.dashboard;
 
+import com.medchain.audit.AuditEventService;
+import com.medchain.audit.dto.ActivityItemResponse;
 import com.medchain.batch.BatchRepository;
 import com.medchain.batch.BatchStatus;
 import com.medchain.batch.RiskLevel;
@@ -21,15 +23,26 @@ public class DashboardController {
 
     private final BatchRepository batchRepository;
     private final TransferRepository transferRepository;
+    private final AuditEventService auditEventService;
 
     @GetMapping
     public ResponseEntity<DashboardResponse> get() {
+        long total = batchRepository.count();
+        long recalled = batchRepository.countByStatus(BatchStatus.RECALLED);
+        long inTransit = batchRepository.countByStatus(BatchStatus.IN_TRANSIT);
+        long received = batchRepository.countByStatus(BatchStatus.RECEIVED);
+        long verified = batchRepository.countByStatus(BatchStatus.VERIFIED);
+        long highRisk = batchRepository.countByRiskLevel(RiskLevel.HIGH);
+        long active = Math.max(0, total - recalled);
+
         DashboardStats stats = new DashboardStats(
-                batchRepository.count(),
-                batchRepository.countByStatus(BatchStatus.VERIFIED),
-                batchRepository.countByStatus(BatchStatus.IN_TRANSIT),
-                batchRepository.countByStatus(BatchStatus.RECEIVED),
-                batchRepository.countByRiskLevel(RiskLevel.HIGH)
+                total,
+                active,
+                inTransit,
+                received,
+                verified,
+                highRisk,
+                recalled
         );
 
         List<BatchSummaryResponse> recentBatches = batchRepository.findTop5ByOrderByCreatedAtDesc()
@@ -40,8 +53,11 @@ public class DashboardController {
 
         List<RiskAlertResponse> riskAlerts = batchRepository
                 .findAllByRiskLevelInOrderByRiskScoreDesc(List.of(RiskLevel.MEDIUM, RiskLevel.HIGH))
-                .stream().limit(3).map(RiskAlertResponse::from).toList();
+                .stream().limit(5).map(RiskAlertResponse::from).toList();
 
-        return ResponseEntity.ok(new DashboardResponse(stats, recentBatches, recentTransfers, riskAlerts));
+        List<ActivityItemResponse> recentActivity = auditEventService.getRecentActivity()
+                .stream().map(ActivityItemResponse::from).toList();
+
+        return ResponseEntity.ok(new DashboardResponse(stats, recentBatches, recentTransfers, riskAlerts, recentActivity));
     }
 }

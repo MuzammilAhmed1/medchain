@@ -45,8 +45,10 @@ export default function CreateBatch() {
           next[field.trim()] = rest.join(":").trim();
         }
         setFieldErrors(next);
+        setFormError(err.details.join(" • "));
+      } else {
+        setFormError(err.message || "Could not create the batch.");
       }
-      setFormError(err.message || "Could not create the batch.");
     } finally {
       setSubmitting(false);
     }
@@ -123,7 +125,7 @@ export default function CreateBatch() {
             onChange={update("quantity")}
             error={fieldErrors.quantity}
           />
-          {formError && !Object.keys(fieldErrors).length && <Alert tone="danger">{formError}</Alert>}
+          {formError && <Alert tone="danger">{formError}</Alert>}
           <div className="flex gap-3 mt-2">
             <Button type="submit" disabled={submitting}>
               {submitting ? "Recording on chain…" : "Create batch"}

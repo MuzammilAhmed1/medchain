@@ -21,8 +21,14 @@ public class BatchController {
     private final BatchService batchService;
 
     @GetMapping
-    public ResponseEntity<List<BatchSummaryResponse>> list() {
-        return ResponseEntity.ok(batchService.listAll());
+    public ResponseEntity<List<BatchSummaryResponse>> list(
+            @RequestParam(required = false, defaultValue = "false") boolean all,
+            @AuthenticationPrincipal User currentUser
+    ) {
+        if (all || currentUser == null || currentUser.getRole() == com.medchain.auth.Role.ADMIN) {
+            return ResponseEntity.ok(batchService.listAll());
+        }
+        return ResponseEntity.ok(batchService.listForUser(currentUser));
     }
 
     @GetMapping("/{id}")

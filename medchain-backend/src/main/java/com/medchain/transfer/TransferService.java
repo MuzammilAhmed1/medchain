@@ -27,6 +27,7 @@ public class TransferService {
     private final OrganizationRepository organizationRepository;
     private final BatchService batchService;
     private final BlockchainClient blockchainClient;
+    private final com.medchain.audit.AuditEventService auditEventService;
 
     @Transactional
     public TransferResponse initiate(InitiateTransferRequest request, User currentUser) {
@@ -42,20 +43,47 @@ public class TransferService {
             throw new BadRequestException("This batch already has a transfer in progress.");
         }
 
+        Organization fromOrg = currentUser.getOrganization();
+        if (fromOrg.getType() == com.medchain.org.OrgType.PHARMACY) {
+            throw new BadRequestException("Pharmacies dispense medicine directly to patients and cannot transfer batches onward.");
+        }
+
         Organization toOrg = organizationRepository.findByName(request.toOrganizationName())
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "No organization found named " + request.toOrganizationName()));
+                        "Target organization not found: " + request.toOrganizationName()));
+
+        if (fromOrg.getId().equals(toOrg.getId())) {
+            throw new BadRequestException("Cannot transfer a batch to your own organization.");
+        }
+
+        // Enforce strict supply chain role progression:
+        // MANUFACTURER -> DISTRIBUTOR -> PHARMACY
+        if (fromOrg.getType() == com.medchain.org.OrgType.MANUFACTURER && toOrg.getType() != com.medchain.org.OrgType.DISTRIBUTOR) {
+            throw new BadRequestException("Manufacturers can only transfer medicine batches to Distributors.");
+        }
+        if (fromOrg.getType() == com.medchain.org.OrgType.DISTRIBUTOR && toOrg.getType() != com.medchain.org.OrgType.PHARMACY) {
+            throw new BadRequestException("Distributors can only transfer medicine batches to Pharmacies.");
+        }
 
         Transfer transfer = transferRepository.save(Transfer.builder()
                 .batch(batch)
-                .fromOrg(currentUser.getOrganization())
+                .fromOrg(fromOrg)
                 .toOrg(toOrg)
                 .status(TransferStatus.INITIATED)
                 .initiatedAt(Instant.now())
                 .build());
 
         batchService.markInTransit(batch);
-        blockchainClient.recordTransferInitiated(batch);
+
+        auditEventService.record(batch, com.medchain.audit.AuditEventType.TRANSFER_INITIATED,
+                currentUser.getName(), fromOrg.getName(),
+                "Transfer initiated to " + toOrg.getName());
+
+        var onChainEvent = blockchainClient.recordTransferInitiated(batch);
+        onChainEvent.ifPresent(ev -> auditEventService.record(
+                batch, com.medchain.audit.AuditEventType.BLOCKCHAIN_RECORDED, "Relayer", "Blockchain",
+                "Recorded TRANSFER_INITIATED in block " + ev.getBlockNumber() + " (tx: " + ev.getTxHash() + ")"));
+
         batchService.refreshRisk(batch);
 
         return TransferResponse.from(transfer);
@@ -67,10 +95,10 @@ public class TransferService {
                 .orElseThrow(() -> new ResourceNotFoundException("No transfer found with id " + transferId));
 
         if (transfer.getStatus() == TransferStatus.RECEIVED) {
-            throw new BadRequestException("This transfer has already been received.");
+            throw new BadRequestException("This shipment has already been received.");
         }
         if (!transfer.getToOrg().getId().equals(currentUser.getOrganization().getId())) {
-            throw new ForbiddenActionException("Only the intended recipient can confirm receipt of this transfer.");
+            throw new ForbiddenActionException("Only the intended recipient (" + transfer.getToOrg().getName() + ") can confirm receipt.");
         }
 
         transfer.setStatus(TransferStatus.RECEIVED);
@@ -79,7 +107,16 @@ public class TransferService {
 
         MedicineBatch batch = transfer.getBatch();
         batchService.markReceived(batch, transfer.getToOrg());
-        blockchainClient.recordTransferReceived(batch);
+
+        auditEventService.record(batch, com.medchain.audit.AuditEventType.TRANSFER_RECEIVED,
+                currentUser.getName(), currentUser.getOrganization().getName(),
+                "Shipment confirmed and received by " + currentUser.getOrganization().getName());
+
+        var onChainEvent = blockchainClient.recordTransferReceived(batch);
+        onChainEvent.ifPresent(ev -> auditEventService.record(
+                batch, com.medchain.audit.AuditEventType.BLOCKCHAIN_RECORDED, "Relayer", "Blockchain",
+                "Recorded TRANSFER_RECEIVED in block " + ev.getBlockNumber() + " (tx: " + ev.getTxHash() + ")"));
+
         batchService.refreshRisk(batch);
 
         return TransferResponse.from(transfer);

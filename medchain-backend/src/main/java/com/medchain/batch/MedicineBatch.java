@@ -66,7 +66,23 @@ public class MedicineBatch {
     @Column(name = "risk_recommendation", length = 1000)
     private String riskRecommendation;
 
+    @Column(name = "batch_number")
+    private String batchNumber;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();
+
+    @Column(name = "updated_at")
+    @Builder.Default
+    private Instant updatedAt = Instant.now();
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = Instant.now();
+    }
+
+    public String getBatchNumber() {
+        return batchNumber != null ? batchNumber : id;
+    }
 }

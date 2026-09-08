@@ -9,6 +9,7 @@ import com.medchain.auth.User;
 import com.medchain.batch.dto.BatchDetailResponse;
 import com.medchain.batch.dto.BatchSummaryResponse;
 import com.medchain.batch.dto.CreateBatchRequest;
+import com.medchain.batch.dto.TimelineStepResponse;
 import com.medchain.blockchain.BlockchainClient;
 import com.medchain.blockchain.BlockchainEvent;
 import com.medchain.blockchain.BlockchainEventRepository;
@@ -36,13 +37,16 @@ public class BatchService {
     private final BlockchainEventRepository blockchainEventRepository;
     private final BlockchainClient blockchainClient;
     private final AiRiskClient aiRiskClient;
+    private final com.medchain.audit.AuditEventService auditEventService;
 
     @Transactional
     public BatchDetailResponse createBatch(CreateBatchRequest request, User currentUser) {
         Organization manufacturer = currentUser.getOrganization();
+        String batchId = generateBatchId();
 
         MedicineBatch batch = MedicineBatch.builder()
-                .id(generateBatchId())
+                .id(batchId)
+                .batchNumber(batchId)
                 .medicineName(request.medicineName())
                 .manufacturer(manufacturer)
                 .manufacturingDate(request.manufacturingDate())
@@ -50,20 +54,38 @@ public class BatchService {
                 .quantity(request.quantity())
                 .currentOwner(manufacturer)
                 .status(BatchStatus.CREATED)
+                .createdAt(java.time.Instant.now())
+                .updatedAt(java.time.Instant.now())
                 .build();
 
-        batch = batchRepository.save(batch);
+        MedicineBatch savedBatch = batchRepository.save(batch);
 
-        blockchainClient.recordBatchCreated(batch);
-        refreshRisk(batch);
+        auditEventService.record(savedBatch, com.medchain.audit.AuditEventType.BATCH_CREATED, currentUser.getName(),
+                manufacturer.getName(), "Batch registered with quantity " + savedBatch.getQuantity());
 
-        return getDetail(batch.getId());
+        var onChainEvent = blockchainClient.recordBatchCreated(savedBatch);
+        onChainEvent.ifPresent(ev -> auditEventService.record(
+                savedBatch, com.medchain.audit.AuditEventType.BLOCKCHAIN_RECORDED, "Relayer", "Blockchain",
+                "Recorded BATCH_CREATED in block " + ev.getBlockNumber() + " (tx: " + ev.getTxHash() + ")"));
+
+        refreshRisk(savedBatch);
+
+        return getDetail(savedBatch.getId());
     }
 
     public List<BatchSummaryResponse> listAll() {
         return batchRepository.findAllByOrderByCreatedAtDesc().stream()
                 .map(BatchSummaryResponse::from)
                 .toList();
+    }
+
+    public List<BatchSummaryResponse> listForUser(User currentUser) {
+        if (currentUser.getRole() == com.medchain.auth.Role.ADMIN) {
+            return listAll();
+        }
+        Organization org = currentUser.getOrganization();
+        return batchRepository.findAllByManufacturerOrCurrentOwnerOrderByCreatedAtDesc(org, org)
+                .stream().map(BatchSummaryResponse::from).toList();
     }
 
     public MedicineBatch getBatchOrThrow(String id) {
@@ -75,9 +97,15 @@ public class BatchService {
         MedicineBatch batch = getBatchOrThrow(id);
         List<Transfer> transfers = transferRepository.findAllByBatchOrderByInitiatedAtAsc(batch);
         List<BlockchainEvent> events = blockchainEventRepository.findAllByBatchOrderByTimestampAsc(batch);
+        List<com.medchain.audit.AuditEvent> auditEvents = auditEventService.getTimelineForBatch(batch);
+
+        List<TimelineStepResponse> timeline = (auditEvents != null && !auditEvents.isEmpty())
+                ? TimelineBuilder.buildFromAuditEvents(batch, auditEvents)
+                : TimelineBuilder.build(batch, transfers, events);
 
         return new BatchDetailResponse(
                 batch.getId(),
+                batch.getBatchNumber(),
                 batch.getMedicineName(),
                 batch.getManufacturer().getName(),
                 batch.getManufacturingDate(),
@@ -89,8 +117,10 @@ public class BatchService {
                 batch.getRiskLevel(),
                 batch.getRiskReason(),
                 batch.getRiskRecommendation(),
+                batch.getCreatedAt(),
+                batch.getUpdatedAt(),
                 events.stream().map(BlockchainEventResponse::from).toList(),
-                TimelineBuilder.build(batch, transfers, events)
+                timeline
         );
     }
 
@@ -131,7 +161,15 @@ public class BatchService {
         }
 
         markRecalled(batch);
-        blockchainClient.recordRecalled(batch);
+        auditEventService.record(batch, com.medchain.audit.AuditEventType.RECALL_CREATED,
+                currentUser.getName(), currentUser.getOrganization().getName(),
+                "Batch recalled by manufacturer");
+
+        var recallOnChain = blockchainClient.recordRecalled(batch);
+        recallOnChain.ifPresent(ev -> auditEventService.record(
+                batch, com.medchain.audit.AuditEventType.BLOCKCHAIN_RECORDED, "Relayer", "Blockchain",
+                "Recorded RECALLED on-chain (tx: " + ev.getTxHash() + ")"));
+
         refreshRisk(batch);
 
         return getDetail(id);

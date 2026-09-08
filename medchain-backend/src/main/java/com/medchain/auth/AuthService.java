@@ -7,6 +7,7 @@ import com.medchain.auth.dto.UserResponse;
 import com.medchain.common.exception.BadRequestException;
 import com.medchain.org.Organization;
 import com.medchain.org.OrganizationRepository;
+import com.medchain.org.OrgType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -30,23 +31,19 @@ public class AuthService {
             throw new BadRequestException("An account with this email already exists.");
         }
 
-        Organization organization = organizationRepository.findByName(request.organizationName())
-                .orElseGet(() -> {
-                    if (request.organizationType() == null) {
-                        throw new BadRequestException(
-                                "organizationType is required when registering a new organization.");
-                    }
-                    return organizationRepository.save(Organization.builder()
-                            .name(request.organizationName())
-                            .type(request.organizationType())
-                            .build());
-                });
-
-        Role role = switch (organization.getType()) {
-            case MANUFACTURER -> Role.MANUFACTURER;
-            case DISTRIBUTOR -> Role.DISTRIBUTOR;
-            case PHARMACY -> Role.PHARMACY;
+        Role role = request.effectiveRole();
+        OrgType inferredOrgType = switch (role) {
+            case ADMIN -> OrgType.ADMIN;
+            case MANUFACTURER -> OrgType.MANUFACTURER;
+            case DISTRIBUTOR -> OrgType.DISTRIBUTOR;
+            case PHARMACY -> OrgType.PHARMACY;
         };
+
+        Organization organization = organizationRepository.findByName(request.organizationName())
+                .orElseGet(() -> organizationRepository.save(Organization.builder()
+                        .name(request.organizationName())
+                        .type(request.organizationType() != null ? request.organizationType() : inferredOrgType)
+                        .build()));
 
         User user = userRepository.save(User.builder()
                 .name(request.name())

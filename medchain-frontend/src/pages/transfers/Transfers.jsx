@@ -5,12 +5,18 @@ import { useAuth, ROLES } from "../../context/AuthContext";
 import { useAsync } from "../../hooks/useAsync";
 import { transferApi } from "../../services/transferApi";
 import { batchApi } from "../../services/batchApi";
+import { organizationApi } from "../../services/organizationApi";
 
 const tabs = ["Pending", "History", "Initiate transfer"];
 
-const nextOwnerByRole = {
-  [ROLES.MANUFACTURER]: "a distributor",
-  [ROLES.DISTRIBUTOR]: "a pharmacy",
+const targetRoleBySender = {
+  [ROLES.MANUFACTURER]: "DISTRIBUTOR",
+  [ROLES.DISTRIBUTOR]: "PHARMACY",
+};
+
+const nextOwnerDescription = {
+  [ROLES.MANUFACTURER]: "an authorized Distributor",
+  [ROLES.DISTRIBUTOR]: "an authorized Pharmacy",
 };
 
 function formatDate(value) {
@@ -32,13 +38,24 @@ export default function Transfers() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const { loading, error, data } = useAsync(
-    () => Promise.all([transferApi.pending(), transferApi.history(), batchApi.list()]),
+    () => Promise.all([
+      transferApi.pending(),
+      transferApi.history(),
+      batchApi.list(),
+      organizationApi.list(),
+    ]),
     [refreshKey]
   );
 
-  const [pending, history, allBatches] = data || [[], [], []];
+  const [pending = [], history = [], allBatches = [], allOrganizations = []] = data || [];
+  
   const myBatches = (allBatches || []).filter(
     (b) => b.currentOwner === user?.organization && b.status !== "RECALLED" && b.status !== "IN_TRANSIT"
+  );
+
+  const targetRole = targetRoleBySender[user?.role];
+  const eligibleOrganizations = (allOrganizations || []).filter(
+    (org) => !targetRole || org.type === targetRole
   );
 
   const refresh = () => setRefreshKey((k) => k + 1);
@@ -138,7 +155,12 @@ export default function Transfers() {
               ))}
 
             {active === "Initiate transfer" &&
-              (myBatches.length === 0 ? (
+              (user?.role === ROLES.PHARMACY ? (
+                <EmptyState
+                  title="Pharmacies cannot initiate transfers"
+                  description="As a Pharmacy, you represent the terminal dispensing point in the pharmaceutical supply chain. Batches in your custody are dispensed and verified directly for patients."
+                />
+              ) : myBatches.length === 0 ? (
                 <EmptyState
                   title="Nothing available to transfer"
                   description="You have no batches currently in your custody that are ready to move on."
@@ -146,29 +168,64 @@ export default function Transfers() {
               ) : (
                 <form onSubmit={handleInitiate} className="flex flex-col gap-4 max-w-md">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-label text-ink">Batch</label>
+                    <label className="text-label text-ink">Select Batch to Transfer</label>
                     <select
                       value={selectedBatch}
                       onChange={(e) => setSelectedBatch(e.target.value)}
                       className="h-10 rounded-xs border border-border px-3 text-body text-ink bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      required
                     >
-                      <option value="">Select a batch you own</option>
+                      <option value="">-- Choose a batch in your custody --</option>
                       {myBatches.map((b) => (
                         <option key={b.id} value={b.id}>
-                          {b.id} — {b.medicineName}
+                          {b.id} — {b.medicineName} ({b.status})
                         </option>
                       ))}
                     </select>
                   </div>
-                  <Input
-                    label="Recipient organization"
-                    placeholder={`Name of ${nextOwnerByRole[user?.role] || "the receiving organization"}`}
-                    value={recipient}
-                    onChange={(e) => setRecipient(e.target.value)}
-                  />
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-label text-ink">
+                      Recipient Organization ({nextOwnerDescription[user?.role] || "Recipient"})
+                    </label>
+                    {eligibleOrganizations.length > 0 ? (
+                      <div className="flex flex-col gap-2">
+                        <select
+                          value={recipient}
+                          onChange={(e) => setRecipient(e.target.value)}
+                          className="h-10 rounded-xs border border-border px-3 text-body text-ink bg-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          required
+                        >
+                          <option value="">-- Select an eligible {targetRole?.toLowerCase() || "organization"} --</option>
+                          {eligibleOrganizations.map((org) => (
+                            <option key={org.id} value={org.name}>
+                              {org.name} ({org.type})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-small text-ink-muted">
+                          Or type manually if registering in advance:
+                        </p>
+                        <Input
+                          placeholder="Or type organization name manually"
+                          value={recipient}
+                          onChange={(e) => setRecipient(e.target.value)}
+                        />
+                      </div>
+                    ) : (
+                      <Input
+                        label="Recipient organization name"
+                        placeholder={`Name of ${nextOwnerDescription[user?.role] || "receiving organization"}`}
+                        value={recipient}
+                        onChange={(e) => setRecipient(e.target.value)}
+                        required
+                      />
+                    )}
+                  </div>
+
                   {formError && <Alert tone="danger">{formError}</Alert>}
                   <Button type="submit" className="mt-2" disabled={submitting}>
-                    {submitting ? "Initiating…" : "Initiate transfer"}
+                    {submitting ? "Initiating transfer…" : "Initiate transfer"}
                   </Button>
                 </form>
               ))}

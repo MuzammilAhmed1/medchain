@@ -4,10 +4,10 @@ import { useAuth } from "../../context/AuthContext";
 import { Card, Input, Button, Alert } from "../../components/ui";
 
 const DEMO_ACCOUNTS = [
-  "priya@abcpharma.com (Manufacturer)",
-  "grace@medline.com (Distributor)",
-  "elena@cornerhealth.com (Pharmacy)",
-  "admin@medchain.dev (Admin)",
+  { role: "Manufacturer", email: "priya@abcpharma.com", password: "password123" },
+  { role: "Distributor", email: "grace@medline.com", password: "password123" },
+  { role: "Pharmacy", email: "elena@cornerhealth.com", password: "password123" },
+  { role: "Admin", email: "admin@medchain.dev", password: "password123" },
 ];
 
 export default function Login() {
@@ -15,6 +15,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -30,6 +31,12 @@ export default function Login() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleFillDemo = (demo) => {
+    setEmail(demo.email);
+    setPassword(demo.password);
+    setError("");
   };
 
   return (
@@ -51,6 +58,7 @@ export default function Login() {
           <Input
             label="Password"
             type="password"
+            placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -60,14 +68,36 @@ export default function Login() {
             {submitting ? "Logging in…" : "Log in"}
           </Button>
         </form>
+
         <div className="mt-6 pt-6 border-t border-border">
-          <p className="text-label text-ink-muted mb-2">Demo accounts (password: password123)</p>
-          <ul className="text-small text-ink-muted space-y-1 font-mono">
-            {DEMO_ACCOUNTS.map((acc) => (
-              <li key={acc}>{acc}</li>
-            ))}
-          </ul>
+          <div className="flex items-center justify-between">
+            <span className="text-label text-ink-muted">Quick fill demo accounts</span>
+            <button
+              type="button"
+              onClick={() => setShowDemo(!showDemo)}
+              className="text-small text-primary hover:underline"
+            >
+              {showDemo ? "Hide" : "Show"}
+            </button>
+          </div>
+
+          {showDemo && (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {DEMO_ACCOUNTS.map((demo) => (
+                <button
+                  key={demo.email}
+                  type="button"
+                  onClick={() => handleFillDemo(demo)}
+                  className="text-left p-2.5 rounded-xs border border-border bg-surface-muted hover:bg-surface text-small text-ink transition-colors"
+                >
+                  <p className="font-medium text-ink">{demo.role}</p>
+                  <p className="text-xs text-ink-muted truncate">{demo.email}</p>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+
         <p className="text-small text-ink-muted mt-6 text-center">
           New here?{" "}
           <Link to="/register" className="text-primary font-medium">

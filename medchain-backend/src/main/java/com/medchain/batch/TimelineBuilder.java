@@ -25,6 +25,38 @@ public final class TimelineBuilder {
     private TimelineBuilder() {
     }
 
+    public static List<TimelineStepResponse> buildFromAuditEvents(
+            MedicineBatch batch, List<com.medchain.audit.AuditEvent> auditEvents
+    ) {
+        if (auditEvents == null || auditEvents.isEmpty()) {
+            return List.of(TimelineStepResponse.done(
+                    "Batch created",
+                    batch.getCreatedAt() != null ? TIMESTAMP_FORMAT.format(batch.getCreatedAt()) : null,
+                    "Created by " + batch.getManufacturer().getName()
+            ));
+        }
+        List<TimelineStepResponse> steps = new ArrayList<>();
+        for (com.medchain.audit.AuditEvent ae : auditEvents) {
+            String title = switch (ae.getEventType()) {
+                case BATCH_CREATED -> "Batch created";
+                case TRANSFER_INITIATED -> "Transfer initiated";
+                case TRANSFER_RECEIVED -> "Received by " + ae.getOrganization();
+                case QR_VERIFIED -> "Verified";
+                case BLOCKCHAIN_RECORDED -> "Recorded on blockchain";
+                case RECALL_CREATED -> "Batch recalled";
+            };
+            steps.add(TimelineStepResponse.done(
+                title,
+                TIMESTAMP_FORMAT.format(ae.getTimestamp()),
+                ae.getDescription() != null ? ae.getDescription() : (ae.getPerformedBy() + " · " + ae.getOrganization())
+            ));
+        }
+        if (batch.getStatus() == BatchStatus.IN_TRANSIT) {
+            steps.add(TimelineStepResponse.current("In transit", "Awaiting recipient confirmation"));
+        }
+        return steps;
+    }
+
     public static List<TimelineStepResponse> build(
             MedicineBatch batch, List<Transfer> transfers, List<BlockchainEvent> blockchainEvents
     ) {
