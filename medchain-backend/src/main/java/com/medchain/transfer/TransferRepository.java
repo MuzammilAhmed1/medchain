@@ -12,6 +12,7 @@ public interface TransferRepository extends JpaRepository<Transfer, java.util.UU
     List<Transfer> findAllByToOrgAndStatusOrderByInitiatedAtDesc(Organization toOrg, TransferStatus status);
     List<Transfer> findAllByStatusOrderByInitiatedAtDesc(TransferStatus status);
     List<Transfer> findAllByOrderByInitiatedAtDesc();
+    List<Transfer> findAllByFromOrgOrToOrgOrderByInitiatedAtDesc(Organization fromOrg, Organization toOrg);
     List<Transfer> findTop3ByOrderByInitiatedAtDesc();
     Optional<Transfer> findFirstByBatchAndStatusOrderByInitiatedAtDesc(MedicineBatch batch, TransferStatus status);
 }
