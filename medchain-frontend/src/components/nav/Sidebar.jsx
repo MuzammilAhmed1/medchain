@@ -8,15 +8,24 @@ import {
   User,
   ShieldCheck,
   LogOut,
+  Thermometer,
+  ShieldAlert,
+  TrendingUp,
+  Award,
+  Blocks,
 } from "lucide-react";
 import { useAuth, ROLES } from "../../context/AuthContext";
 
 const items = [
   { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/app/batches", label: "Batches", icon: Package },
-  { to: "/app/verify", label: "Verify", icon: QrCode },
+  { to: "/app/cold-chain", label: "Cold chain", icon: Thermometer },
+  { to: "/app/anomalies", label: "Anomaly center", icon: ShieldAlert },
+  { to: "/app/forecasts", label: "AI forecasts", icon: TrendingUp },
+  { to: "/app/trust-scores", label: "Trust scores", icon: Award },
+  { to: "/app/blockchain", label: "Blockchain", icon: Blocks },
   { to: "/app/transfers", label: "Supply chain", icon: Repeat },
-  { to: "/app/insights", label: "AI insights", icon: Sparkles },
+  { to: "/app/verify", label: "Verify", icon: QrCode },
   { to: "/app/profile", label: "Profile", icon: User },
   { to: "/app/admin", label: "Admin", icon: ShieldCheck, roles: [ROLES.ADMIN] },
 ];

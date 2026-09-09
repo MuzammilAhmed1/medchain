@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: medchain-postgres
+    environment:
+      POSTGRES_DB: medchain
+      POSTGRES_USER: medchain
+      POSTGRES_PASSWORD: medchain
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./medchain-backend
+      dockerfile: Dockerfile
+    container_name: medchain-backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/medchain
+      SPRING_DATASOURCE_USERNAME: medchain
+      SPRING_DATASOURCE_PASSWORD: medchain
+      MEDCHAIN_AI_SERVICE_URL: http://ai-service:8000
+      MEDCHAIN_BLOCKCHAIN_RPC_URL: http://localhost:8545
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+  ai-service:
+    build:
+      context: ./medchain-ai-service
+      dockerfile: Dockerfile
+    container_name: medchain-ai-service
+    ports:
+      - "8000:8000"
+
+volumes:
+  postgres_data:

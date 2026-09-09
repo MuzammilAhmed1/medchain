@@ -3,22 +3,22 @@ spring:
     name: medchain-backend
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/medchain
-    username: medchain
-    password: medchain
+    url: ${DATABASE_URL:${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/medchain}}
+    username: ${DATABASE_USERNAME:${SPRING_DATASOURCE_USERNAME:medchain}}
+    password: ${DATABASE_PASSWORD:${SPRING_DATASOURCE_PASSWORD:medchain}}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true  # Set to true temporarily for debugging
+    show-sql: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
     open-in-view: false
 
 server:
-  port: 8080
+  port: ${PORT:8080}
   # Add these error settings to see full error messages
   error:
     include-message: always
@@ -32,6 +32,9 @@ logging:
     org.springframework.web.cors: DEBUG
 
 medchain:
+  cors:
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,https://*.vercel.app,https://*.onrender.com,https://*.netlify.app}
+
   jwt:
     secret: ${MEDCHAIN_JWT_SECRET:dev-only-secret-key-please-override-me-1234567890}
     expiration-minutes: 720
@@ -45,6 +48,21 @@ medchain:
     contract-address: ${MEDCHAIN_CONTRACT_ADDRESS:0x5FbDB2315678afecb367f032d93F642f64180aa3}
     chain-id: ${MEDCHAIN_CHAIN_ID:31337}
     relayer-private-key: ${MEDCHAIN_RELAYER_KEY:0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
+
+  geocoding:
+    google-api-key: ${GOOGLE_MAPS_API_KEY:}
+
+  routing:
+    google-api-key: ${GOOGLE_MAPS_API_KEY:}
+    minimum-recalculation-seconds: 60
+    minimum-distance-meters: 500
+
+  tracking:
+    live-threshold-seconds: 60
+    stale-threshold-seconds: 300
+    route-deviation-threshold-meters: 1500
+    unexpected-stop-minutes: 15
+    impossible-speed-kph: 160
 
   seed:
     enabled: ${MEDCHAIN_SEED_DEMO_DATA:false}

@@ -1,6 +1,7 @@
 package com.medchain.transfer;
 
 import com.medchain.audit.AuditEventService;
+import com.medchain.audit.AuditEventType;
 import com.medchain.auth.Role;
 import com.medchain.auth.User;
 import com.medchain.batch.BatchRepository;
@@ -10,9 +11,12 @@ import com.medchain.batch.MedicineBatch;
 import com.medchain.blockchain.BlockchainClient;
 import com.medchain.common.exception.BadRequestException;
 import com.medchain.common.exception.ForbiddenActionException;
+import com.medchain.events.SseService;
+import com.medchain.notification.NotificationService;
 import com.medchain.org.OrgType;
 import com.medchain.org.Organization;
 import com.medchain.org.OrganizationRepository;
+import com.medchain.reputation.TrustScoreService;
 import com.medchain.transfer.dto.InitiateTransferRequest;
 import com.medchain.transfer.dto.TransferResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +28,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -47,6 +52,12 @@ class TransferServiceTest {
     private BlockchainClient blockchainClient;
     @Mock
     private AuditEventService auditEventService;
+    @Mock
+    private NotificationService notificationService;
+    @Mock
+    private SseService sseService;
+    @Mock
+    private TrustScoreService trustScoreService;
 
     @InjectMocks
     private TransferService transferService;
@@ -61,9 +72,31 @@ class TransferServiceTest {
 
     @BeforeEach
     void setUp() {
-        manufacturer = Organization.builder().id(UUID.randomUUID()).name("Apex Pharma").type(OrgType.MANUFACTURER).build();
-        distributor = Organization.builder().id(UUID.randomUUID()).name("LogiMed Express").type(OrgType.DISTRIBUTOR).build();
-        pharmacy = Organization.builder().id(UUID.randomUUID()).name("City Care Pharmacy").type(OrgType.PHARMACY).build();
+        manufacturer = Organization.builder()
+                .id(UUID.randomUUID())
+                .name("Apex Pharma")
+                .type(OrgType.MANUFACTURER)
+                .city("Raichur")
+                .state("Karnataka")
+                .latitude(16.212)
+                .longitude(77.3439)
+                .build();
+        distributor = Organization.builder()
+                .id(UUID.randomUUID())
+                .name("LogiMed Express")
+                .type(OrgType.DISTRIBUTOR)
+                .city("Bangalore")
+                .state("Karnataka")
+                .latitude(12.9716)
+                .longitude(77.5946)
+                .build();
+        pharmacy = Organization.builder()
+                .id(UUID.randomUUID())
+                .name("City Care Pharmacy")
+                .type(OrgType.PHARMACY)
+                .city("Mysore")
+                .state("Karnataka")
+                .build();
 
         mfgUser = User.builder().id(UUID.randomUUID()).name("Alice Mfg").email("alice@apex.com").role(Role.MANUFACTURER).organization(manufacturer).build();
         distUser = User.builder().id(UUID.randomUUID()).name("Bob Dist").email("bob@logimed.com").role(Role.DISTRIBUTOR).organization(distributor).build();
@@ -84,9 +117,12 @@ class TransferServiceTest {
     }
 
     @Test
-    void manufacturerCanTransferToDistributor() {
+    void manufacturerCanInitiateTransferToDistributor() {
         when(batchService.getBatchOrThrow("MC-2026-00001")).thenReturn(batch);
         when(organizationRepository.findByName("LogiMed Express")).thenReturn(Optional.of(distributor));
+        when(transferRepository.findAllByBatchOrderByInitiatedAtAsc(batch)).thenReturn(Collections.emptyList());
+        when(transferRepository.count()).thenReturn(0L);
+        when(transferRepository.existsByShipmentNumber(anyString())).thenReturn(false);
         when(transferRepository.save(any(Transfer.class))).thenAnswer(invocation -> {
             Transfer t = invocation.getArgument(0);
             t.setId(UUID.randomUUID());
@@ -101,8 +137,14 @@ class TransferServiceTest {
         assertThat(response.batchId()).isEqualTo("MC-2026-00001");
         assertThat(response.from()).isEqualTo("Apex Pharma");
         assertThat(response.to()).isEqualTo("LogiMed Express");
-        verify(batchService).markInTransit(batch);
-        verify(auditEventService).record(eq(batch), any(), any(), any(), any());
+        assertThat(response.status()).isEqualTo(TransferStatus.INITIATED);
+        assertThat(response.shipmentNumber()).startsWith("MC-SHIP-");
+        assertThat(response.originLatitude()).isEqualTo(16.212);
+        assertThat(response.destinationLatitude()).isEqualTo(12.9716);
+
+        verify(auditEventService).record(eq(batch), eq(AuditEventType.TRANSFER_INITIATED), any(), any(), any());
+        verify(notificationService).notify(anyString(), anyString(), any(), anyString(), anyString(), any(), eq(distributor), any());
+        verify(sseService).broadcast(eq("TRANSFER_UPDATED"), any());
     }
 
     @Test
@@ -146,15 +188,83 @@ class TransferServiceTest {
     }
 
     @Test
-    void recipientCanReceiveTransfer() {
+    void originCanStartShipment() {
         UUID transferId = UUID.randomUUID();
         Transfer transfer = Transfer.builder()
                 .id(transferId)
+                .shipmentNumber("MC-SHIP-2026-0001")
                 .batch(batch)
                 .fromOrg(manufacturer)
                 .toOrg(distributor)
                 .status(TransferStatus.INITIATED)
                 .initiatedAt(Instant.now())
+                .build();
+
+        when(transferRepository.findById(transferId)).thenReturn(Optional.of(transfer));
+        when(transferRepository.save(any(Transfer.class))).thenReturn(transfer);
+        when(blockchainClient.recordTransferInitiated(any())).thenReturn(Optional.empty());
+
+        TransferResponse response = transferService.startShipment(transferId.toString(), mfgUser);
+
+        assertThat(response.status()).isEqualTo(TransferStatus.IN_TRANSIT);
+        verify(batchService).markInTransit(batch);
+        verify(auditEventService).record(eq(batch), eq(AuditEventType.TRANSFER_IN_TRANSIT), any(), any(), any());
+        verify(notificationService).notify(anyString(), anyString(), any(), anyString(), anyString(), any(), eq(distributor), any());
+        verify(sseService).broadcast(eq("TRANSFER_UPDATED"), any());
+    }
+
+    @Test
+    void nonOriginCannotStartShipment() {
+        UUID transferId = UUID.randomUUID();
+        Transfer transfer = Transfer.builder()
+                .id(transferId)
+                .shipmentNumber("MC-SHIP-2026-0001")
+                .batch(batch)
+                .fromOrg(manufacturer)
+                .toOrg(distributor)
+                .status(TransferStatus.INITIATED)
+                .initiatedAt(Instant.now())
+                .build();
+
+        when(transferRepository.findById(transferId)).thenReturn(Optional.of(transfer));
+
+        assertThatThrownBy(() -> transferService.startShipment(transferId.toString(), distUser))
+                .isInstanceOf(ForbiddenActionException.class)
+                .hasMessageContaining("Only the origin organization");
+    }
+
+    @Test
+    void cannotReceiveShipmentDirectlyFromInitiated() {
+        UUID transferId = UUID.randomUUID();
+        Transfer transfer = Transfer.builder()
+                .id(transferId)
+                .shipmentNumber("MC-SHIP-2026-0001")
+                .batch(batch)
+                .fromOrg(manufacturer)
+                .toOrg(distributor)
+                .status(TransferStatus.INITIATED)
+                .initiatedAt(Instant.now())
+                .build();
+
+        when(transferRepository.findById(transferId)).thenReturn(Optional.of(transfer));
+
+        assertThatThrownBy(() -> transferService.receive(transferId.toString(), distUser))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("Shipment must be started and in transit before it can be received");
+    }
+
+    @Test
+    void recipientCanReceiveInTransitShipment() {
+        UUID transferId = UUID.randomUUID();
+        Transfer transfer = Transfer.builder()
+                .id(transferId)
+                .shipmentNumber("MC-SHIP-2026-0001")
+                .batch(batch)
+                .fromOrg(manufacturer)
+                .toOrg(distributor)
+                .status(TransferStatus.IN_TRANSIT)
+                .initiatedAt(Instant.now().minusSeconds(3600))
+                .startedAt(Instant.now().minusSeconds(1800))
                 .build();
 
         when(transferRepository.findById(transferId)).thenReturn(Optional.of(transfer));
@@ -165,6 +275,28 @@ class TransferServiceTest {
 
         assertThat(response.status()).isEqualTo(TransferStatus.RECEIVED);
         verify(batchService).markReceived(batch, distributor);
-        verify(auditEventService).record(eq(batch), any(), any(), any(), any());
+        verify(auditEventService).record(eq(batch), eq(AuditEventType.TRANSFER_RECEIVED), any(), any(), any());
+        verify(notificationService).notify(anyString(), anyString(), any(), anyString(), anyString(), any(), eq(manufacturer), any());
+        verify(sseService).broadcast(eq("TRANSFER_UPDATED"), any());
+    }
+
+    @Test
+    void nonRecipientCannotReceiveShipment() {
+        UUID transferId = UUID.randomUUID();
+        Transfer transfer = Transfer.builder()
+                .id(transferId)
+                .shipmentNumber("MC-SHIP-2026-0001")
+                .batch(batch)
+                .fromOrg(manufacturer)
+                .toOrg(distributor)
+                .status(TransferStatus.IN_TRANSIT)
+                .build();
+
+        when(transferRepository.findById(transferId)).thenReturn(Optional.of(transfer));
+
+        assertThatThrownBy(() -> transferService.receive(transferId.toString(), mfgUser))
+                .isInstanceOf(ForbiddenActionException.class)
+                .hasMessageContaining("Only the intended recipient");
     }
 }
+

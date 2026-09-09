@@ -40,6 +40,7 @@ public final class TimelineBuilder {
             String title = switch (ae.getEventType()) {
                 case BATCH_CREATED -> "Batch created";
                 case TRANSFER_INITIATED -> "Transfer initiated";
+                case TRANSFER_IN_TRANSIT -> "In transit";
                 case TRANSFER_RECEIVED -> "Received by " + ae.getOrganization();
                 case QR_VERIFIED -> "Verified";
                 case BLOCKCHAIN_RECORDED -> "Recorded on blockchain";

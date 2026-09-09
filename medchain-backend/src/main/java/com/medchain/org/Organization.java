@@ -38,4 +38,54 @@ public class Organization {
      */
     @Column(name = "wallet_address")
     private String walletAddress;
+
+    @Column(name = "address")
+    private String address;
+
+    @Column(name = "city")
+    private String city;
+
+    @Column(name = "state")
+    private String state;
+
+    @Column(name = "postal_code")
+    private String postalCode;
+
+    @Column(name = "country")
+    @Builder.Default
+    private String country = "India";
+
+    @Column(name = "formatted_address", length = 500)
+    private String formattedAddress;
+
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
+    @Column(name = "place_id")
+    private String placeId;
+
+    public String buildFullAddressString() {
+        StringBuilder sb = new StringBuilder();
+        if (address != null && !address.isBlank()) sb.append(address.trim());
+        if (city != null && !city.isBlank()) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(city.trim());
+        }
+        if (state != null && !state.isBlank()) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(state.trim());
+        }
+        if (postalCode != null && !postalCode.isBlank()) {
+            if (sb.length() > 0) sb.append(" ");
+            sb.append(postalCode.trim());
+        }
+        if (country != null && !country.isBlank()) {
+            if (sb.length() > 0) sb.append(", ");
+            sb.append(country.trim());
+        }
+        return sb.toString();
+    }
 }

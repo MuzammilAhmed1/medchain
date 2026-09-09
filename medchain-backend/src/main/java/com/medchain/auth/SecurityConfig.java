@@ -50,10 +50,17 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
+    @org.springframework.beans.factory.annotation.Value("${medchain.cors.allowed-origin-patterns:http://localhost:*,https://*.vercel.app,https://*.onrender.com,https://*.netlify.app}")
+    private String allowedOrigins;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("http://localhost:*"));
+        List<String> origins = java.util.Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        configuration.setAllowedOriginPatterns(origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
@@ -74,6 +81,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                         .requestMatchers("/api/verify", "/api/verify/**").permitAll()
                         .requestMatchers("/api/organizations", "/api/organizations/**").permitAll()
+                        .requestMatchers("/api/tracking/location").permitAll()
+                        .requestMatchers("/api/tracking/driver/**").permitAll()
+                        .requestMatchers("/api/v1/events/stream").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()

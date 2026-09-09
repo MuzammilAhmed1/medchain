@@ -9,4 +9,5 @@ import java.util.UUID;
 public interface AuditEventRepository extends JpaRepository<AuditEvent, UUID> {
     List<AuditEvent> findAllByBatchOrderByTimestampAsc(MedicineBatch batch);
     List<AuditEvent> findTop10ByOrderByTimestampDesc();
+    long countByBatchAndEventType(MedicineBatch batch, AuditEventType eventType);
 }

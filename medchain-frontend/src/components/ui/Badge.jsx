@@ -8,8 +8,9 @@ const styles = {
 
 const statusTone = {
   CREATED: "neutral",
+  INITIATED: "neutral",
   IN_TRANSIT: "warning",
-  RECEIVED: "info",
+  RECEIVED: "success",
   VERIFIED: "success",
   RECALLED: "danger",
   LOW: "success",

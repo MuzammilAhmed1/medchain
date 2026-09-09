@@ -14,9 +14,18 @@ import CreateBatch from "./pages/batches/CreateBatch";
 import BatchDetails from "./pages/batches/BatchDetails";
 import Verify from "./pages/verify/Verify";
 import Transfers from "./pages/transfers/Transfers";
+import ShipmentDetails from "./pages/transfers/ShipmentDetails";
+import ShipmentTracking from "./pages/transfers/ShipmentTracking";
 import Insights from "./pages/insights/Insights";
 import Profile from "./pages/profile/Profile";
 import Admin from "./pages/admin/Admin";
+
+import ColdChainMonitoring from "./pages/coldchain/ColdChainMonitoring";
+import AnomalyCenter from "./pages/anomalies/AnomalyCenter";
+import ForecastDashboard from "./pages/forecasts/ForecastDashboard";
+import OrganizationTrust from "./pages/reputation/OrganizationTrust";
+import BlockchainExplorer from "./pages/blockchain/BlockchainExplorer";
+import DriverTracker from "./pages/driver/DriverTracker";
 
 export default function App() {
   return (
@@ -30,13 +39,23 @@ export default function App() {
             <Route path="/register" element={<Register />} />
           </Route>
 
+          {/* Standalone Driver Mobile PWA Tracking Route */}
+          <Route path="/driver/track/:shipmentNumber" element={<DriverTracker />} />
+
           <Route path="/app" element={<AppShell />}>
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="batches" element={<BatchList />} />
             <Route path="batches/new" element={<CreateBatch />} />
             <Route path="batches/:id" element={<BatchDetails />} />
+            <Route path="cold-chain" element={<ColdChainMonitoring />} />
+            <Route path="anomalies" element={<AnomalyCenter />} />
+            <Route path="forecasts" element={<ForecastDashboard />} />
+            <Route path="trust-scores" element={<OrganizationTrust />} />
+            <Route path="blockchain" element={<BlockchainExplorer />} />
             <Route path="verify" element={<Verify />} />
             <Route path="transfers" element={<Transfers />} />
+            <Route path="transfers/:id" element={<ShipmentDetails />} />
+            <Route path="transfers/:id/tracking" element={<ShipmentTracking />} />
             <Route path="insights" element={<Insights />} />
             <Route path="profile" element={<Profile />} />
             <Route

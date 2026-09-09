@@ -1,12 +1,24 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ResponsiveContainer } from "recharts";
 import { format } from "date-fns";
-import { ShieldCheck, Activity } from "lucide-react";
+import {
+  ShieldCheck,
+  Activity,
+  Thermometer,
+  ShieldAlert,
+  TrendingUp,
+  Award,
+  Blocks,
+  ArrowRight,
+} from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useAsync } from "../../hooks/useAsync";
 import { PageHeader, Card, CardHeader, StatCard, Badge, Alert, Table, Tr, Td, LoadingBlock } from "../../components/ui";
 import { dashboardApi } from "../../services/dashboardApi";
 import { batchApi } from "../../services/batchApi";
+import { coldChainApi } from "../../services/coldChainApi";
+import { anomalyApi } from "../../services/anomalyApi";
 
 const STATUS_ORDER = ["CREATED", "IN_TRANSIT", "RECEIVED", "VERIFIED", "RECALLED"];
 const statusColor = {
@@ -29,11 +41,29 @@ function formatTimestamp(value) {
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [activeColdChainAlerts, setActiveColdChainAlerts] = useState(0);
+  const [activeAnomaliesCount, setActiveAnomaliesCount] = useState(0);
 
   const { loading, error, data } = useAsync(
     () => Promise.all([dashboardApi.get(), batchApi.list()]),
     []
   );
+
+  useEffect(() => {
+    async function loadExtraStats() {
+      try {
+        const [alerts, anom] = await Promise.all([
+          coldChainApi.getActiveAlerts(),
+          anomalyApi.listAnomalies(0, 1),
+        ]);
+        setActiveColdChainAlerts(alerts?.length || 0);
+        setActiveAnomaliesCount(anom?.totalElements || 0);
+      } catch (e) {
+        console.error("Failed to load dashboard ancillary stats:", e);
+      }
+    }
+    loadExtraStats();
+  }, []);
 
   if (loading) return <LoadingBlock label="Loading dashboard…" />;
   if (error) return <Alert tone="danger" title="Could not load the dashboard">{error}</Alert>;
@@ -65,8 +95,66 @@ export default function Dashboard() {
         <StatCard label="Active in chain" value={stats.active ?? 0} />
         <StatCard label="In transit" value={stats.inTransit ?? 0} tone="warning" />
         <StatCard label="Verified" value={stats.verified ?? 0} tone="success" />
-        <StatCard label="Recalled" value={stats.recalled ?? 0} tone="danger" />
-        <StatCard label="High AI risk" value={stats.highRisk ?? 0} tone={stats.highRisk > 0 ? "danger" : undefined} />
+        <StatCard label="Cold-Chain Alerts" value={activeColdChainAlerts} tone={activeColdChainAlerts > 0 ? "danger" : undefined} />
+        <StatCard label="Detected Anomalies" value={activeAnomaliesCount} tone={activeAnomaliesCount > 0 ? "warning" : undefined} />
+      </div>
+
+      {/* Enterprise Platform Quick Access Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+        <Link
+          to="/app/cold-chain"
+          className="p-3.5 bg-surface border border-border rounded-xs hover:border-primary transition-colors flex items-center justify-between group"
+        >
+          <div className="flex items-center gap-2.5">
+            <Thermometer size={18} className="text-primary" />
+            <span className="text-small font-semibold text-ink">Cold-Chain Live</span>
+          </div>
+          <ArrowRight size={14} className="text-ink-muted group-hover:text-primary transition-colors" />
+        </Link>
+
+        <Link
+          to="/app/anomalies"
+          className="p-3.5 bg-surface border border-border rounded-xs hover:border-primary transition-colors flex items-center justify-between group"
+        >
+          <div className="flex items-center gap-2.5">
+            <ShieldAlert size={18} className="text-danger" />
+            <span className="text-small font-semibold text-ink">Anomaly Center</span>
+          </div>
+          <ArrowRight size={14} className="text-ink-muted group-hover:text-primary transition-colors" />
+        </Link>
+
+        <Link
+          to="/app/forecasts"
+          className="p-3.5 bg-surface border border-border rounded-xs hover:border-primary transition-colors flex items-center justify-between group"
+        >
+          <div className="flex items-center gap-2.5">
+            <TrendingUp size={18} className="text-emerald-600" />
+            <span className="text-small font-semibold text-ink">AI Forecasts</span>
+          </div>
+          <ArrowRight size={14} className="text-ink-muted group-hover:text-primary transition-colors" />
+        </Link>
+
+        <Link
+          to="/app/trust-scores"
+          className="p-3.5 bg-surface border border-border rounded-xs hover:border-primary transition-colors flex items-center justify-between group"
+        >
+          <div className="flex items-center gap-2.5">
+            <Award size={18} className="text-amber-600" />
+            <span className="text-small font-semibold text-ink">Org Trust</span>
+          </div>
+          <ArrowRight size={14} className="text-ink-muted group-hover:text-primary transition-colors" />
+        </Link>
+
+        <Link
+          to="/app/blockchain"
+          className="p-3.5 bg-surface border border-border rounded-xs hover:border-primary transition-colors flex items-center justify-between group"
+        >
+          <div className="flex items-center gap-2.5">
+            <Blocks size={18} className="text-primary" />
+            <span className="text-small font-semibold text-ink">Chain Explorer</span>
+          </div>
+          <ArrowRight size={14} className="text-ink-muted group-hover:text-primary transition-colors" />
+        </Link>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6 mb-6">

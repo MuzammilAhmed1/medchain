@@ -1,5 +1,5 @@
 export { default as Button } from "./Button";
-export { Card, CardHeader } from "./Card";
+export { Card, CardHeader, CardBody } from "./Card";
 export { default as Badge } from "./Badge";
 export { default as Input } from "./Input";
 export { Table, Tr, Td, EmptyState } from "./Table";

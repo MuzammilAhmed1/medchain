@@ -220,6 +220,11 @@ public class BatchService {
     private String generateBatchId() {
         int year = LocalDate.now(ZoneOffset.UTC).getYear();
         long sequence = batchRepository.count() + 1;
-        return String.format("MC-%d-%05d", year, sequence);
+        String id = String.format("MC-%d-%05d", year, sequence);
+        while (batchRepository.existsById(id)) {
+            sequence++;
+            id = String.format("MC-%d-%05d", year, sequence);
+        }
+        return id;
     }
 }

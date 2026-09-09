@@ -8,4 +8,6 @@ import java.util.UUID;
 
 public interface BlockchainEventRepository extends JpaRepository<BlockchainEvent, UUID> {
     List<BlockchainEvent> findAllByBatchOrderByTimestampAsc(MedicineBatch batch);
+    org.springframework.data.domain.Page<BlockchainEvent> findAllByOrderByTimestampDesc(org.springframework.data.domain.Pageable pageable);
+    List<BlockchainEvent> findTop50ByOrderByTimestampDesc();
 }

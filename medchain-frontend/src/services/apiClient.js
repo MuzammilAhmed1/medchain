@@ -1,4 +1,14 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
+function getBaseUrl() {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  if (typeof window !== "undefined" && window.location.hostname && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+    return `${window.location.protocol}//${window.location.hostname}:8080/api`;
+  }
+  return "http://localhost:8080/api";
+}
+
+export const BASE_URL = getBaseUrl();
 const TOKEN_KEY = "medchain_token";
 
 export function getToken() {
@@ -55,7 +65,9 @@ async function request(path, { method = "GET", body, auth = true } = {}) {
 }
 
 export const api = {
-  get: (path) => request(path),
-  post: (path, body) => request(path, { method: "POST", body }),
-  put: (path, body) => request(path, { method: "PUT", body }),
+  get: (path, opts) => request(path, { method: "GET", ...opts }),
+  post: (path, body, opts) => request(path, { method: "POST", body, ...opts }),
+  put: (path, body, opts) => request(path, { method: "PUT", body, ...opts }),
+  patch: (path, body, opts) => request(path, { method: "PATCH", body, ...opts }),
+  delete: (path, opts) => request(path, { method: "DELETE", ...opts }),
 };
