@@ -39,10 +39,19 @@ public class AuthService {
             case PHARMACY -> OrgType.PHARMACY;
         };
 
+        OrgType targetOrgType = request.organizationType() != null ? request.organizationType() : inferredOrgType;
+
         Organization organization = organizationRepository.findByName(request.organizationName())
+                .map(existingOrg -> {
+                    if (existingOrg.getType() != targetOrgType && role != Role.ADMIN) {
+                        existingOrg.setType(targetOrgType);
+                        return organizationRepository.save(existingOrg);
+                    }
+                    return existingOrg;
+                })
                 .orElseGet(() -> organizationRepository.save(Organization.builder()
                         .name(request.organizationName())
-                        .type(request.organizationType() != null ? request.organizationType() : inferredOrgType)
+                        .type(targetOrgType)
                         .build()));
 
         User user = userRepository.save(User.builder()

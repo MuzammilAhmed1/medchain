@@ -3,6 +3,7 @@ package com.medchain.transfer;
 import com.medchain.audit.AuditEvent;
 import com.medchain.audit.AuditEventService;
 import com.medchain.audit.AuditEventType;
+import com.medchain.auth.Role;
 import com.medchain.auth.User;
 import com.medchain.batch.BatchRepository;
 import com.medchain.batch.BatchService;
@@ -115,7 +116,19 @@ public class TransferService {
         }
 
         Organization fromOrg = currentUser.getOrganization();
-        if (fromOrg.getType() == com.medchain.org.OrgType.PHARMACY) {
+        com.medchain.org.OrgType senderType = switch (currentUser.getRole()) {
+            case MANUFACTURER -> com.medchain.org.OrgType.MANUFACTURER;
+            case DISTRIBUTOR -> com.medchain.org.OrgType.DISTRIBUTOR;
+            case PHARMACY -> com.medchain.org.OrgType.PHARMACY;
+            default -> fromOrg.getType();
+        };
+
+        if (fromOrg.getType() != senderType && currentUser.getRole() != Role.ADMIN) {
+            fromOrg.setType(senderType);
+            organizationRepository.save(fromOrg);
+        }
+
+        if (senderType == com.medchain.org.OrgType.PHARMACY) {
             throw new BadRequestException("Pharmacies dispense medicine directly to patients and cannot transfer batches onward.");
         }
 
@@ -129,10 +142,10 @@ public class TransferService {
 
         // Enforce strict supply chain role progression:
         // MANUFACTURER -> DISTRIBUTOR -> PHARMACY
-        if (fromOrg.getType() == com.medchain.org.OrgType.MANUFACTURER && toOrg.getType() != com.medchain.org.OrgType.DISTRIBUTOR) {
+        if (senderType == com.medchain.org.OrgType.MANUFACTURER && toOrg.getType() != com.medchain.org.OrgType.DISTRIBUTOR) {
             throw new BadRequestException("Manufacturers can only transfer medicine batches to Distributors.");
         }
-        if (fromOrg.getType() == com.medchain.org.OrgType.DISTRIBUTOR && toOrg.getType() != com.medchain.org.OrgType.PHARMACY) {
+        if (senderType == com.medchain.org.OrgType.DISTRIBUTOR && toOrg.getType() != com.medchain.org.OrgType.PHARMACY) {
             throw new BadRequestException("Distributors can only transfer medicine batches to Pharmacies.");
         }
 
