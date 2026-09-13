@@ -1,0 +1,9 @@
+{
+  "contractAddress": "0x781A8e2973B72F02804118ea7f7305EB3ffe1D82",
+  "network": "Polygon Amoy",
+  "chainId": 80002,
+  "rpcUrl": "https://polygon-amoy-bor-rpc.publicnode.com",
+  "relayerAddress": "0x5e5Ed6df7B60EBFF9a12DDD3f61d194376809B5a",
+  "deployedAt": "2026-09-13T07:05:29.194Z",
+  "txHash": "0xc95c7466493d913e22d643c7b27474e19c5401ca593f0a5c955d7ca17e27056a"
+}

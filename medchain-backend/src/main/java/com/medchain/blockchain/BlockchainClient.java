@@ -97,6 +97,12 @@ public class BlockchainClient {
                     new RawTransactionManager(web3j, relayerCredentials, properties.chainId());
 
             BigInteger gasPrice = web3j.ethGasPrice().send().getGasPrice();
+            BigInteger minGasPrice = BigInteger.valueOf(30_000_000_000L); // 30 Gwei floor for Polygon
+            if (gasPrice.compareTo(minGasPrice) < 0) {
+                gasPrice = minGasPrice;
+            } else {
+                gasPrice = gasPrice.multiply(BigInteger.valueOf(125)).divide(BigInteger.valueOf(100)); // +25% buffer
+            }
             BigInteger gasLimit = BigInteger.valueOf(500_000);
 
             EthSendTransaction sendResponse = txManager.sendTransaction(
@@ -108,7 +114,7 @@ public class BlockchainClient {
             }
 
             String txHash = sendResponse.getTransactionHash();
-            TransactionReceipt receipt = new PollingTransactionReceiptProcessor(web3j, 1000, 40)
+            TransactionReceipt receipt = new PollingTransactionReceiptProcessor(web3j, 2000, 60)
                     .waitForTransactionReceipt(txHash);
 
             BlockchainEvent event = blockchainEventRepository.save(BlockchainEvent.builder()
