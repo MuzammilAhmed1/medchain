@@ -40,7 +40,7 @@ medchain:
     expiration-minutes: 720
 
   ai-service:
-    base-url: ${MEDCHAIN_AI_SERVICE_URL:http://localhost:8000}
+    base-url: ${MEDCHAIN_AI_SERVICE_URL:https://medchain-ai-service.onrender.com}
 
   blockchain:
     enabled: ${MEDCHAIN_BLOCKCHAIN_ENABLED:true}

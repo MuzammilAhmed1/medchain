@@ -81,8 +81,15 @@ public class AiRiskClient {
                     baseUrl + "/ai/assistant/query", request, AiAssistantResponse.class);
             return Optional.ofNullable(response);
         } catch (RestClientException e) {
-            log.error("AI assistant query failed: {}", e.getMessage());
-            return Optional.empty();
+            log.warn("AI assistant query initial attempt failed: {}. Retrying...", e.getMessage());
+            try {
+                AiAssistantResponse response = aiServiceRestTemplate.postForObject(
+                        baseUrl + "/ai/assistant/query", request, AiAssistantResponse.class);
+                return Optional.ofNullable(response);
+            } catch (RestClientException ex) {
+                log.error("AI assistant query retry failed: {}", ex.getMessage());
+                return Optional.empty();
+            }
         }
     }
 }
