@@ -13,8 +13,8 @@ public class AiConfig {
     @Bean
     public RestTemplate aiServiceRestTemplate(RestTemplateBuilder builder) {
         return builder
-                .setConnectTimeout(Duration.ofSeconds(3))
-                .setReadTimeout(Duration.ofSeconds(5))
+                .setConnectTimeout(Duration.ofSeconds(45))
+                .setReadTimeout(Duration.ofSeconds(45))
                 .build();
     }
 }
