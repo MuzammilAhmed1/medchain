@@ -210,7 +210,7 @@ public class AssistantService {
                         mfr,
                         owner,
                         b.getStatus() != null ? b.getStatus().name() : "CREATED",
-                        b.getQuantity() != null ? b.getQuantity() : 0,
+                        b.getQuantity(),
                         b.getManufacturingDate() != null ? b.getManufacturingDate().toString() : "N/A",
                         b.getExpiryDate() != null ? b.getExpiryDate().toString() : "N/A"
                 );
