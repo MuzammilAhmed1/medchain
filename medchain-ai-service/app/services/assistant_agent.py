@@ -48,8 +48,56 @@ def process_assistant_query(req: AssistantQueryRequest) -> AssistantQueryRespons
                 None
             )
 
-        # If not specific, prioritize active IN_TRANSIT shipments
-        if not matched_transfer:
+        # If a specific batch was requested but has no active transfer, answer accurately for that batch
+        if not matched_transfer and target_batch_id:
+            b_found = next((b for b in batches if str(b.get("id", "")).upper() == target_batch_id), None)
+            if b_found:
+                referenced_batches.append(target_batch_id)
+                b_name = b_found.get("medicineName") or b_found.get("name") or "Pharmaceutical Cargo"
+                b_status = b_found.get("status", "CREATED")
+                b_owner = b_found.get("currentOwner") or b_found.get("manufacturer") or "Origin Facility"
+                b_mfr = b_found.get("manufacturer") or b_owner
+                md = (
+                    f"### 📦 Shipment & Location Status: **{target_batch_id}**\n\n"
+                    f"- **Medicine Cargo**: **{b_name}** (Batch `{target_batch_id}`)\n"
+                    f"- **Current Custody / Location**: **{b_owner}**\n"
+                    f"- **Batch Status**: `{b_status}`\n"
+                    f"- **Shipment Status**: **No Active Transit**\n\n"
+                    f"Batch **{target_batch_id}** is currently securely stored at **{b_owner}** and has not been dispatched onto a transport route yet.\n\n"
+                    f"💡 *To track this cargo with real-time GPS telemetry and temperature sensors, initiate a transfer to a logistics carrier or destination facility.*"
+                )
+                return AssistantQueryResponse(
+                    answerMarkdown=md,
+                    referencedBatchIds=referenced_batches,
+                    referencedOrgIds=referenced_orgs,
+                    suggestedActions=[f"Initiate transfer for {target_batch_id}", f"View details for {target_batch_id}", "Check system status"]
+                )
+            else:
+                md = (
+                    f"### ⚠️ Batch Not Found: **{target_batch_id}**\n\n"
+                    f"Batch **{target_batch_id}** was not found in your organization's authorized inventory or transit manifest."
+                )
+                return AssistantQueryResponse(
+                    answerMarkdown=md,
+                    referencedBatchIds=[],
+                    referencedOrgIds=[],
+                    suggestedActions=["View batch catalog", "Check shipment number"]
+                )
+
+        if not matched_transfer and target_shipment_num:
+            md = (
+                f"### ⚠️ Shipment Not Found: **{target_shipment_num}**\n\n"
+                f"Shipment **{target_shipment_num}** was not found in your transit manifest."
+            )
+            return AssistantQueryResponse(
+                answerMarkdown=md,
+                referencedBatchIds=[],
+                referencedOrgIds=[],
+                suggestedActions=["View active shipments", "Check system status"]
+            )
+
+        # Only if the query was generic (no specific batch or shipment asked for), prioritize active IN_TRANSIT shipments
+        if not matched_transfer and not target_batch_id and not target_shipment_num:
             in_transit = [t for t in transfers if str(t.get("status", "")).upper() == "IN_TRANSIT"]
             if in_transit:
                 matched_transfer = in_transit[0]
