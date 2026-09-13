@@ -84,6 +84,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/tracking/location").permitAll()
                         .requestMatchers("/api/tracking/driver/**").permitAll()
                         .requestMatchers("/api/v1/events/stream").permitAll()
+                        .requestMatchers("/api/v1/blockchain/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()
