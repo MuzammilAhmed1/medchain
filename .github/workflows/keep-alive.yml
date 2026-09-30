@@ -1,0 +1,22 @@
+name: Render 24/7 Keep-Alive Pinger
+
+on:
+  schedule:
+    # Run every 10 minutes to prevent Render free-tier instances from sleeping
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  ping-services:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping MedChain Backend API
+        run: |
+          echo "Pinging Backend..."
+          curl -s -f -m 30 https://medchain-backend-stol.onrender.com/actuator/health || true
+
+      - name: Ping MedChain AI Microservice
+        run: |
+          echo "Pinging AI Microservice..."
+          curl -s -f -m 30 https://medchain-ai-service.onrender.com/health || true

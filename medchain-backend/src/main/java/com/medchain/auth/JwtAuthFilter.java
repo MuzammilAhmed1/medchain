@@ -23,6 +23,20 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final java.util.Map<String, CachedUser> userCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private record CachedUser(User user, long expiryTimeMs) {}
+
+    private java.util.Optional<User> getCachedUser(String email) {
+        CachedUser cached = userCache.get(email);
+        long now = System.currentTimeMillis();
+        if (cached != null && cached.expiryTimeMs() > now) {
+            return java.util.Optional.of(cached.user());
+        }
+        java.util.Optional<User> fresh = userRepository.findByEmail(email);
+        fresh.ifPresent(u -> userCache.put(email, new CachedUser(u, now + 300_000L))); // 5 minutes cache
+        return fresh;
+    }
 
     @Override
     protected void doFilterInternal(
@@ -56,7 +70,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             String email = jwtService.extractEmail(authTokenStr);
 
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                userRepository.findByEmail(email).ifPresent(user -> {
+                getCachedUser(email).ifPresent(user -> {
                     if (jwtService.isTokenValid(authTokenStr, email)) {
                         var authToken = new UsernamePasswordAuthenticationToken(
                                 user, null, user.getAuthorities());

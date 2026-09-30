@@ -7,6 +7,13 @@ spring:
     username: ${DATABASE_USERNAME:${SPRING_DATASOURCE_USERNAME:medchain}}
     password: ${DATABASE_PASSWORD:${SPRING_DATASOURCE_PASSWORD:medchain}}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      minimum-idle: 3
+      maximum-pool-size: 10
+      idle-timeout: 300000
+      max-lifetime: 600000
+      connection-timeout: 20000
+      keepalive-time: 45000
 
   jpa:
     hibernate:
@@ -19,17 +26,16 @@ spring:
 
 server:
   port: ${PORT:8080}
-  # Add these error settings to see full error messages
   error:
     include-message: always
-    include-stacktrace: always
+    include-stacktrace: never
 
 logging:
   level:
-    org.springframework.web: DEBUG
-    org.springframework.security: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.springframework.web.cors: DEBUG
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: WARN
+    org.springframework.web.cors: INFO
 
 medchain:
   cors:
